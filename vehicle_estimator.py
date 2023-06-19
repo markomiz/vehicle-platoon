@@ -10,16 +10,12 @@ class VehicleEstimator:
     def prediction(self, steering_angle, acceleration, dt):
         # Motion model
         self.state[3] += acceleration * dt
-        delta = (self.state[3] * np.tan(steering_angle)) / self.wheelbase * dt
-        rotation_matrix = np.array([[np.cos(self.state[2]), -np.sin(self.state[2])],
-                                    [np.sin(self.state[2]), np.cos(self.state[2])]])
-        translation = np.array([self.state[3] * np.cos(self.state[2]) * dt,
-                               self.state[3] * np.sin(self.state[2]) * dt])
-
-        # Update the state and covariance based on motion model
-        self.state[:2] += np.matmul(rotation_matrix, translation)
-        self.state[2] += delta
+        self.state[2] += (self.state[3] * np.tan(steering_angle)) / self.wheelbase * dt
         self.state[2] = mod2pi(self.state[2])
+        self.state[3] += acceleration * dt
+
+        self.state[0] += self.state[3] * dt * np.cos(self.state[2])
+        self.state[1] += self.state[3] * dt * np.sin(self.state[2])
 
         # Jacobian of motion model
         F = np.array([[0, 0, -self.state[3] * np.sin(self.state[2]) * dt, np.cos(self.state[2]) * dt],
