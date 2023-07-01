@@ -31,12 +31,14 @@ class Controller:
 
         heading_error = self.desired_state[2] - current_state[2] # 
 
+        follow_diff = following_state[:2] - current_state[2]
         diff = self.desired_state[:2] - current_state[:2]
         dist = np.linalg.norm(diff)
         
         diff_angle = mod2pi( np.arctan2(diff[1], diff[0]) )
+        follow_diff_angle = mod2pi( np.arctan2(follow_diff[1], follow_diff[0]) )
 
-        path_error = - dist * np.sin(diff_angle - angle) 
+        path_error = - dist * np.sin(follow_diff_angle - angle) 
         long_error = - dist * np.cos(diff_angle - angle)
 
         # Proportional term

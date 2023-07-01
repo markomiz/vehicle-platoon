@@ -1,5 +1,6 @@
 import numpy as np
 from helpers import *
+from copy import deepcopy
 
 class VehicleEstimator:
     def __init__(self, initial_state, initial_covariance, wheelbase=2.5):
@@ -7,19 +8,21 @@ class VehicleEstimator:
         self.covariance = np.array(initial_covariance)
         self.wheelbase = wheelbase
 
-    def prediction(self, steering_angle, acceleration, dt):
+    def prediction(self, steering_angle, acceleration, dt, replace = True):
         # Motion model
-        self.state[3] += acceleration * dt
-        self.state[2] += (self.state[3] * np.tan(steering_angle)) / self.wheelbase * dt
-        self.state[2] = mod2pi(self.state[2])
-        self.state[3] += acceleration * dt
+        new_state = deepcopy(self.state)
+        new_covariance = deepcopy(self.covariance)
+        new_state[3] += acceleration * dt
+        new_state[2] += (new_state[3] * np.tan(steering_angle)) / self.wheelbase * dt
+        new_state[2] = mod2pi(new_state[2])
+        new_state[3] += acceleration * dt
 
-        self.state[0] += self.state[3] * dt * np.cos(self.state[2])
-        self.state[1] += self.state[3] * dt * np.sin(self.state[2])
+        new_state[0] += new_state[3] * dt * np.cos(new_state[2])
+        new_state[1] += new_state[3] * dt * np.sin(new_state[2])
 
         # Jacobian of motion model
-        F = np.array([[0, 0, -self.state[3] * np.sin(self.state[2]) * dt, np.cos(self.state[2]) * dt],
-                      [0, 0, self.state[3] * np.cos(self.state[2]) * dt, np.sin(self.state[2]) * dt],
+        F = np.array([[0, 0, -new_state[3] * np.sin(new_state[2]) * dt, np.cos(new_state[2]) * dt],
+                      [0, 0, new_state[3] * np.cos(new_state[2]) * dt, np.sin(new_state[2]) * dt],
                       [0, 0, 0, dt* np.tan(steering_angle)/self.wheelbase],
                       [0, 0, 0, 0]])
 
@@ -30,7 +33,13 @@ class VehicleEstimator:
                       [0, 0, 0, 0.05]])
 
         # Update the covariance based on motion model
-        self.covariance = np.matmul(np.matmul(F, self.covariance), F.T) + Q
+        new_covariance = np.matmul(np.matmul(F, new_covariance), F.T) + Q
+
+        if replace:
+            self.covariance = new_covariance
+            self.state = new_state
+        
+        return new_state, new_covariance
 
     def measurement(self, measured_state, measurement_model, measurement_covariance):
         # Compute the Jacobian of the measurement model
@@ -62,6 +71,10 @@ class VehicleEstimator:
         measurement_model = lambda state: np.array([state[2]])  # Measurement model function
         measurement_covariance = np.array([[uncertainty ** 2]])  # Measurement noise covariance
         self.measurement(measured_heading, measurement_model, measurement_covariance)
+
+    def incorp_others_prediction(self, state, covariance): # treat getting others position as another measurement
+        measurement_model = lambda state: np.array([state])
+        self.measurement(state, measurement_model, covariance)
 
     def compute_jacobian(self, function, epsilon=1e-5):
         num_states = len(self.state)
