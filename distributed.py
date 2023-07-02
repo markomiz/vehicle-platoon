@@ -10,25 +10,26 @@ from copy import deepcopy
 from world import *
 
 
-def distributed_control(num_cars=20, num_convergence_steps=3):
+def distributed_control(num_cars=3, num_convergence_steps=3):
 
     world = World(num_cars)
 
     # Parameters
-    num_steps = 50
+    num_steps = 60
     timestep = 0.1
-    steering_angle = np.radians(2)  # Gentle steering angle
+    steering_angle = np.radians(0)  # Gentle steering angle
     acceleration = 0.0  # Gentle acceleration
 
     position_history = np.zeros((num_steps, num_cars, 2))
+    desired_history = np.zeros((num_steps, num_cars, 2))
 
-    com_graph = np.zeros((num_cars, num_cars))
-    for i in range(num_cars):
-        for j in range(num_cars):
-            if abs(i-j) == 1:
-                com_graph[i, j] = 1
+    # com_graph = np.zeros((num_cars, num_cars))
+    # for i in range(num_cars):
+    #     for j in range(num_cars):
+    #         if abs(i-j) == 1:
+    #             com_graph[i, j] = 1
 
-    print(com_graph)
+    # print(com_graph)
 
 
     # Run the estimation test loop
@@ -59,8 +60,8 @@ def distributed_control(num_cars=20, num_convergence_steps=3):
         # then they repeatedly recalculate controls based on where they predict they will be based on these controls
             if vs.id > 0:
                 # calculate control to follow car ahead
-                vs.compute_predictive_control(   timestep)
-                position_history[step, i+1, :] = vs.controller.desired_state[:2]
+                vs.compute_predictive_control( timestep )
+                desired_history[step, i, :] = vs.controller.desired_state[:2]
             else:
                 vs.set_next_ctrl(steering_angle, acceleration)
                 vs.emit_control_message()
@@ -73,13 +74,11 @@ def distributed_control(num_cars=20, num_convergence_steps=3):
 
     # Plot the errors
     plt.figure()
-
-    # plt.plot(reals[:,0], reals[:,1],label='real')
-    # plt.plot(ests[:,0], ests[:,1],label='ests')
     plt.plot(position_history[:, 0, 0], position_history[:,0,1], label='lead')
-    # plt.plot(position_history[:, 1, 0], position_history[:,1,1], label='Follower')
-    plt.plot(position_history[:, 2, 0], position_history[:,2,1], label='Desired')
-    # plt.axis('square')
+    for i in range(1,num_cars):
+        plt.plot(position_history[:, i, 0], position_history[:,i,1], label='Follower ' + str(i))
+        plt.plot(desired_history[:, i, 0], desired_history[:,i,1], label='Desired ' + str(i))
+
     plt.legend()
     plt.grid(True)
     plt.show()

@@ -10,17 +10,18 @@ from copy import deepcopy
 from world import *
 
 
-def simple_follow(num_cars=2):
+def simple_follow(num_cars=10):
 
     world = World(num_cars)
 
     # Parameters
     num_steps = 50
     timestep = 0.1
-    steering_angle = np.radians(2)  # Gentle steering angle
+    steering_angle = np.radians(1)  # Gentle steering angle
     acceleration = 0.0  # Gentle acceleration
 
-    position_history = np.zeros((num_steps, num_cars + 1, 2))
+    position_history = np.zeros((num_steps, num_cars, 2))
+    estimate_history = np.zeros((num_steps, num_cars, 2))
 
 
     # Run the estimation test loop
@@ -48,8 +49,10 @@ def simple_follow(num_cars=2):
 
             if vs.id > 0:
                 # calculate control to follow car ahead
-                vs.compute_follow_control( world.all_vehicle_systems[i-1].estimates[i -1].state  ,  timestep)
-                position_history[step, i+1, :] = vs.controller.desired_state[:2]
+                vs.compute_follow_control( vs.estimates[i-1].state  ,  timestep)
+
+                estimate_history[step, :, :] = [e.state[:2] for e in vs.estimates.values()]
+                
             else:
                 vs.set_next_ctrl(steering_angle, acceleration)
                 
@@ -61,11 +64,9 @@ def simple_follow(num_cars=2):
 
     # Plot the errors
     plt.figure()
-
-    # plt.plot(reals[:,0], reals[:,1],label='real')
-    # plt.plot(ests[:,0], ests[:,1],label='ests')
     plt.plot(position_history[:, 0, 0], position_history[:,0,1], label='lead')
-    plt.plot(position_history[:, 1, 0], position_history[:,1,1], label='Follower')
+    for i in range(1,num_cars):
+        plt.plot(position_history[:, i, 0], position_history[:,i,1], label='Follower ' + str(i))
     plt.plot(position_history[:, 2, 0], position_history[:,2,1], label='Desired')
     # plt.axis('square')
     plt.legend()

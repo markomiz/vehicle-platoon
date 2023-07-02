@@ -21,16 +21,16 @@ class VehicleEstimator:
         new_state[1] += new_state[3] * dt * np.sin(new_state[2])
 
         # Jacobian of motion model
-        F = np.array([[0, 0, -new_state[3] * np.sin(new_state[2]) * dt, np.cos(new_state[2]) * dt],
-                      [0, 0, new_state[3] * np.cos(new_state[2]) * dt, np.sin(new_state[2]) * dt],
-                      [0, 0, 0, dt* np.tan(steering_angle)/self.wheelbase],
-                      [0, 0, 0, 0]])
+        F = np.array([[1, 0, -new_state[3] * np.sin(new_state[2]) * dt, np.cos(new_state[2]) * dt],
+                      [0, 1, new_state[3] * np.cos(new_state[2]) * dt, np.sin(new_state[2]) * dt],
+                      [0, 0, 1, dt* np.tan(steering_angle)/self.wheelbase],
+                      [0, 0, 0, 1]])
 
         # Process noise covariance # TODO : get better idea of this...s
-        Q = np.array([[0.05, 0, 0, 0],
-                      [0, 0.05, 0, 0],
-                      [0, 0, 0.05, 0],
-                      [0, 0, 0, 0.05]])
+        Q = np.array([[0.00, 0, 0, 0],
+                      [0, 0.00, 0, 0],
+                      [0, 0, 0.00, 0],
+                      [0, 0, 0, 0.00]])
 
         # Update the covariance based on motion model
         new_covariance = np.matmul(np.matmul(F, new_covariance), F.T) + Q
@@ -58,9 +58,9 @@ class VehicleEstimator:
         measurement_covariance = np.diag([uncertainty ** 2, uncertainty ** 2])  # Measurement noise covariance
         self.measurement(measured_position, measurement_model, measurement_covariance)
 
-    def lidar_measurement(self, measured_distance, object_position, object_covariance, measurement_covariance): # TODO update lidar model
-        measurement_model = lambda state: object_position - state[:2]  # Measurement model function
-        self.measurement(measured_distance, measurement_model, object_covariance + measurement_covariance)
+    def lidar_measurement(self, measured_pos,   measurement_covariance): # TODO update lidar model
+        measurement_model = lambda state: state[:2]  # Measurement model function
+        self.measurement(measured_pos, measurement_model, self.covariance[:2,:2] + measurement_covariance)
 
     def speedometer_measurement(self, measured_speed, uncertainty):
         measurement_model = lambda state: np.array([state[3]])  # Measurement model function
