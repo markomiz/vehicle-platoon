@@ -10,7 +10,7 @@ class Vehicle:
 
     def noisy_single_track_update(self, steering_angle, acceleration, dt):
         # Add noise to the control inputs
-        noisy_steering_angle = self.add_noise(steering_angle, 0.01)
+        noisy_steering_angle =  self.add_noise(steering_angle, 0.01)
         noisy_acceleration = self.add_noise(acceleration, 0.05)
 
         self.state[2] += (self.state[3] * np.tan(noisy_steering_angle)) / self.wheelbase * dt

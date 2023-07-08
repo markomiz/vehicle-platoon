@@ -28,16 +28,34 @@ class VehicleSystem:
                 estimate.prediction(self.next_steers[i], self.next_accs[i], dt)
             self.can_update = False
 
-    def compute_follow_control(self, other_state, dt):
-        acc, steer = self.controller.compute_follow_control(other_state, self.estimates[self.id].state, dt )
+    def compute_follow_control(self, dt):
+        acc, steer = self.controller.compute_follow_control(self.estimates[self.id - 1].state, self.estimates[self.id].state, dt )
         self.set_next_ctrl(steer, acc)
         self.emit_control_message()
     
     def compute_predictive_control(self, dt):
         self.predicted_state = self.estimates[self.id - 1].prediction(self.next_steers[self.id - 1], self.next_accs[self.id - 1], dt, False)
-        acc, steer = self.controller.compute_predictive_control(self.estimates[self.id - 1].state, self.estimates[self.id].state, dt)
+        last_control = [self.next_accs[self.id],self.next_steers[self.id]] 
+        acc, steer = self.controller.compute_predictive_control(self.estimates[self.id - 1].state, self.estimates[self.id].state,last_control, dt)
         self.set_next_ctrl(steer, acc)
         self.emit_control_message()
+    
+    def compute_averaged_control(self, dt):
+        divisor = 2 # weighting of own control
+        acc = self.next_accs[self.id] * 1.0
+        steer = self.next_steers[self.id] * 1.0
+        if self.id - 1 > 0:
+            acc += self.next_accs[self.id - 1]
+            steer = self.next_steers[self.id - 1]
+            divisor += 1
+        if self.id + 1 < len(self.next_steers):
+            acc += self.next_accs[self.id + 1]
+            steer += self.next_steers[self.id + 1]
+            divisor += 1
+        acc /= divisor
+        steer /= divisor
+        self.set_next_ctrl(steer, acc)
+
 
     def simulate_GNSS(self):
         measured_position = self.vehicle.get_state()[:2] + np.random.randn(2) * gnss_uncertainty

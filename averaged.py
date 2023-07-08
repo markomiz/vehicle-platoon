@@ -10,14 +10,14 @@ from copy import deepcopy
 from world import *
 
 
-def distributed_control(num_cars=3, num_convergence_steps=3):
+def averaged_control(num_cars=15, num_convergence_steps=1):
 
     world = World(num_cars)
 
     # Parameters
     num_steps = 60
     timestep = 0.1
-    steering_angle = np.radians(0)  # Gentle steering angle
+    steering_angles = np.sin(np.linspace(0, 2*np.pi, num_steps)) /4 # Gentle steering angle
     acceleration = 0.0  # Gentle acceleration
 
     position_history = np.zeros((num_steps, num_cars, 2))
@@ -55,32 +55,41 @@ def distributed_control(num_cars=3, num_convergence_steps=3):
                 vsyst_behind = world.all_vehicle_systems[i+1]
                 vs.simulate_lidar( vsyst_behind)
 
-        # first each predicts where the others will be
-        # then they each create a control without knowledge of neighbour controls
-        # then they repeatedly recalculate controls based on where they predict they will be based on these controls
             if vs.id > 0:
                 # calculate control to follow car ahead
-                vs.compute_predictive_control( timestep )
+                vs.compute_follow_control( vs.estimates[i-1].state, timestep )
                 desired_history[step, i, :] = vs.controller.desired_state[:2]
             else:
-                vs.set_next_ctrl(steering_angle, acceleration)
+                vs.set_next_ctrl(steering_angles[step], acceleration)
                 vs.emit_control_message()
+            
+            position_history[step, i, :] = vs.vehicle.get_state()[:2]
+
+
+        for _ in range(num_convergence_steps):
+            for v in world.all_vehicle_systems:
+                if vs.id > 0:
+                    # calculate control to follow car ahead
+                    vs.compute_averaged_control( timestep )
+
+            for v in world.all_vehicle_systems:
+                v.emit_control_message()
                 
 
-            position_history[step, i, :] = vs.vehicle.get_state()[:2]
+            
 
         for v in world.all_vehicle_systems: #
             v.update(timestep)
 
     # Plot the errors
     plt.figure()
-    plt.plot(position_history[:, 0, 0], position_history[:,0,1], label='lead')
+    # plt.plot(position_history[:, 0, 0], position_history[:,0,1], label='lead')
     for i in range(1,num_cars):
-        plt.plot(position_history[:, i, 0], position_history[:,i,1], label='Follower ' + str(i))
-        plt.plot(desired_history[:, i, 0], desired_history[:,i,1], label='Desired ' + str(i))
+        plt.plot(position_history[:, i, 0], position_history[:,i,1] -10*i, label='Follower ' + str(i))
+        #plt.plot(desired_history[:, i, 0], desired_history[:,i,1] -10*i, label='Desired ' + str(i))
 
     plt.legend()
     plt.grid(True)
     plt.show()
 
-distributed_control()
+averaged_control()

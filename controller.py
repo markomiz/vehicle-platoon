@@ -3,8 +3,10 @@ from helpers import *
 from copy import deepcopy
 from scipy.optimize import minimize
 
+from collections import deque
+
 class Controller:
-    def __init__(self, kp=2.0, ki=0.1, kd=0.2, k_path=2.0, k_heading=0.8):
+    def __init__(self, kp=5.35, ki=5.23, kd=0.84, k_path=3.7, k_heading=2.5):
         self.kp = kp  # Proportional gain
         self.ki = ki  # Integral gain
         self.kd = kd  # Derivative gain
@@ -16,26 +18,28 @@ class Controller:
         self.max_steer = np.pi/5
         self.max_acc = 5.0
 
-        self.prev_follows = []
-        self.buffer_size = 10
+        self.buffer_size = 20
+        self.prev_follows = deque(maxlen=self.buffer_size)
 
         self.dist_weight = 1.0
         self.angle_weight = 1.0
-        self.vel_weight = 0.0
+        self.vel_weight = 0.2
 
     def add_follow_state(self, state):
         # print(self.prev_follows)
-        self.prev_follows.insert(0,state)
-        if len(self.prev_follows) > self.buffer_size:
-            self.prev_follows.pop()
+        self.prev_follows.appendleft(state)
+
         if len(self.prev_follows) < 2:
             # give some invented linear history so we can always interpolate
             angle = mod2pi(state[2] + np.pi)
-            dist = 10000.0
-            behind = state * 1.0
-            behind[0] += dist * np.cos(angle)
-            behind[1] += dist * np.sin(angle)
-            self.prev_follows.append(behind)
+            for i in range(self.buffer_size):
+                dist = 10.0 * i
+                behind = state * 1.0
+                behind[0] += dist * np.cos(angle)
+                behind[1] += dist * np.sin(angle)
+                self.prev_follows.append(behind)
+
+        # self.prev_follows = self.fit_curve(self.prev_follows)
 
     def get_state_from_buffer(self, s):
         total = 0.0
@@ -101,33 +105,48 @@ class Controller:
 
         return self.clip_control(accelleration, steering_angle)
 
-    def compute_predictive_control(self, other_state, current_state, dt):
+    def compute_predictive_control(self, other_state, current_state, last_control, dt):
         self.add_follow_state(other_state)
         # calculate where I want to be in dt
         desired_state = self.calculate_desired_state(other_state)
         self.desired_state = desired_state
 
-        res = minimize(self.to_minimise, [0.0,0.0], (desired_state, current_state, dt), method='BFGS')
-        steer = res.x[0]
-        acc = res.x[1]
+        res = minimize(self.to_minimise, last_control, (desired_state, current_state, dt), method='Powell', bounds=[(-self.max_acc,self.max_acc), (-self.max_steer,self.max_steer)])
+        acc = res.x[0]
+        steer = res.x[1]
 
         return self.clip_control(acc, steer)
     
     def to_minimise(self, x, desired, current_state, dt ):
+        # x = self.clip_control(x[0], x[1])
         new_state = self.simple_single_track(current_state, x, dt)
-        diff = new_state - desired
+        diff = desired - new_state
         dist_error = (diff[0] **2 + diff[1] **2) * self.dist_weight
-        angle_error = diff[2] * self.angle_weight
-        vel_error = diff[3] * self.vel_weight
+        angle_error = diff[2] **2 * self.angle_weight
+        vel_error = diff[3] ** 2 * self.vel_weight
         total_cost = dist_error + angle_error + vel_error
         return total_cost
 
     def simple_single_track(self, state,  controls, dt):
         wheelbase = 2.5
         new_state = state * 1.0
-        new_state[2] += (new_state[3] * np.tan(controls[0])) / wheelbase * dt
+        new_state[2] += (new_state[3] * np.tan(controls[1])) / wheelbase * dt
         new_state[2] = mod2pi(new_state[2])
-        new_state[3] += controls[1] * dt
+        new_state[3] += controls[0] * dt
         new_state[0] += new_state[3] * dt * np.cos(new_state[2])
         new_state[1] += new_state[3] * dt * np.sin(new_state[2])
         return new_state
+
+
+    def fit_curve(self, data, degree=3):
+
+        data = np.array(data)
+        x = np.arange(data.shape[0])
+        curve = np.empty(data.shape)
+        
+        for i in range(data.shape[1]):
+            coefficients = np.polyfit(x, data[:, i], degree)
+            curve[:, i] = np.polyval(coefficients, x)
+        
+        
+        return deque(curve)

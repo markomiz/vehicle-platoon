@@ -33,7 +33,7 @@ class World:
         
         for car in self.all_vehicle_systems:
             car.estimates = deepcopy(self.all_vehicle_estimates)
-            print(car.estimates)
+            
 
 
 
@@ -41,5 +41,10 @@ class World:
         for vs in self.all_vehicle_systems:
             vs.recieve_control_message(id, steer, accel)
 
-    def remove_car(self, id):
-        ...
+    def set_controller_gains(self, params):
+        for vs in self.all_vehicle_systems:
+            vs.controller.kp = params[0]  # Proportional gain
+            vs.controller.ki = params[1]  # Integral gain
+            vs.controller.kd = params[2]  # Derivative gain
+            vs.controller.k_path = params[3] # Path gain 
+            vs.controller.k_heading = params[4] # heading gain
