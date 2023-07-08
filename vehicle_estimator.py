@@ -27,10 +27,10 @@ class VehicleEstimator:
                       [0, 0, 0, 1]])
 
         # Process noise covariance # TODO : get better idea of this...s
-        Q = np.array([[0.00, 0, 0, 0],
-                      [0, 0.00, 0, 0],
-                      [0, 0, 0.00, 0],
-                      [0, 0, 0, 0.00]])
+        Q = np.array([[0.05, 0, 0, 0],
+                      [0, 0.05, 0, 0],
+                      [0, 0, 0.05, 0],
+                      [0, 0, 0, 0.05]])
 
         # Update the covariance based on motion model
         new_covariance = np.matmul(np.matmul(F, new_covariance), F.T) + Q
@@ -72,9 +72,9 @@ class VehicleEstimator:
         measurement_covariance = np.array([[uncertainty ** 2]])  # Measurement noise covariance
         self.measurement(measured_heading, measurement_model, measurement_covariance)
 
-    def incorp_others_prediction(self, state, covariance): # treat getting others position as another measurement
-        measurement_model = lambda state: np.array([state])
-        self.measurement(state, measurement_model, covariance)
+    def incorp_others_estimate(self, est_state, covariance):
+        measurement_model = lambda state: state[:]
+        self.measurement(est_state, measurement_model, covariance)
 
     def compute_jacobian(self, function, epsilon=1e-5):
         num_states = len(self.state)

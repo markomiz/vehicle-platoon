@@ -18,7 +18,7 @@ class Controller:
         self.max_steer = np.pi/5
         self.max_acc = 5.0
 
-        self.buffer_size = 20
+        self.buffer_size = 500
         self.prev_follows = deque(maxlen=self.buffer_size)
 
         self.dist_weight = 1.0
@@ -39,7 +39,7 @@ class Controller:
                 behind[1] += dist * np.sin(angle)
                 self.prev_follows.append(behind)
 
-        # self.prev_follows = self.fit_curve(self.prev_follows)
+
 
     def get_state_from_buffer(self, s):
         total = 0.0
@@ -136,17 +136,3 @@ class Controller:
         new_state[0] += new_state[3] * dt * np.cos(new_state[2])
         new_state[1] += new_state[3] * dt * np.sin(new_state[2])
         return new_state
-
-
-    def fit_curve(self, data, degree=3):
-
-        data = np.array(data)
-        x = np.arange(data.shape[0])
-        curve = np.empty(data.shape)
-        
-        for i in range(data.shape[1]):
-            coefficients = np.polyfit(x, data[:, i], degree)
-            curve[:, i] = np.polyval(coefficients, x)
-        
-        
-        return deque(curve)

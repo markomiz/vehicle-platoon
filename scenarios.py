@@ -11,19 +11,19 @@ from world import *
 from plotting import *
 
 
-def run_scenario(scenario="simple", num_steps=150,  num_cars=2, world=None, plot=True, num_convergence_steps=1):
+def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot=True, num_convergence_steps=1, v2x=True):
 
     if world is None:
         world = World(num_cars)
 
     # Parameters
     timestep = 0.1
-    steering_angles = np.sin(np.linspace(0, 2*np.pi, num_steps)) /8.0 # Gentle steering angle
+    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps)) /16.0 # Gentle steering angle
     accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps)) / 5.0  # Gentle acceleration
 
     position_history = np.zeros((num_steps, num_cars, 2))
     desired_history = np.zeros((num_steps, num_cars, 2))
-    error_history = np.zeros((num_steps, num_cars))
+    pos_error_history = np.zeros((num_steps, num_cars))
 
     # com_graph = np.zeros((num_cars, num_cars))
     # for i in range(num_cars):
@@ -55,7 +55,7 @@ def run_scenario(scenario="simple", num_steps=150,  num_cars=2, world=None, plot
             
             if i + 1 < len(world.all_vehicle_systems):
                 vsyst_behind = world.all_vehicle_systems[i+1]
-                vs.simulate_lidar( vsyst_behind)
+                vs.simulate_lidar( vsyst_behind )
 
             # first each predicts where the others will be
             # then they each create a control without knowledge of neighbour controls
@@ -69,11 +69,13 @@ def run_scenario(scenario="simple", num_steps=150,  num_cars=2, world=None, plot
                 desired_history[step, i, :] = vs.controller.desired_state[:2]
             else:
                 vs.set_next_ctrl(steering_angles[step], accelerations[step])
+            if v2x:
                 vs.emit_control_message()
+                vs.emit_estimate_message()
                 
 
             position_history[step, i, :] = vs.vehicle.get_state()[:2]
-            error_history[step, i] = np.linalg.norm(position_history[step, i, :] - desired_history[step, i, :])
+            pos_error_history[step, i] = np.linalg.norm(position_history[step, i, :] - desired_history[step, i, :])
 
         if scenario == "averaged":
             for _ in range(num_convergence_steps):
@@ -89,9 +91,9 @@ def run_scenario(scenario="simple", num_steps=150,  num_cars=2, world=None, plot
             v.update(timestep)
     if plot:
         plot_poses(position_history, desired_history)
-        plot_errors(error_history)
+        plot_errors(pos_error_history)
     
-    return np.sum(error_history)
+    return np.sum(pos_error_history)
 
 if __name__ == '__main__':
     # run_scenario(num_cars=10)

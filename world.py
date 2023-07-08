@@ -33,13 +33,14 @@ class World:
         
         for car in self.all_vehicle_systems:
             car.estimates = deepcopy(self.all_vehicle_estimates)
-            
-
-
 
     def transmit_control_message(self, id, steer, accel):
         for vs in self.all_vehicle_systems:
             vs.recieve_control_message(id, steer, accel)
+
+    def transmit_estimate(self, id, state, cov):
+        for vs in self.all_vehicle_systems:
+            vs.receive_estimate_message(id, state, cov)
 
     def set_controller_gains(self, params):
         for vs in self.all_vehicle_systems:
