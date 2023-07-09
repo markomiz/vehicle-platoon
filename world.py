@@ -38,9 +38,9 @@ class World:
         for vs in self.all_vehicle_systems:
             vs.recieve_control_message(id, steer, accel)
 
-    def transmit_estimate(self, id, state, cov):
+    def transmit_estimate(self, id, state, cov, from_id):
         for vs in self.all_vehicle_systems:
-            vs.receive_estimate_message(id, state, cov)
+            vs.receive_estimate_message(id, state, cov, from_id)
 
     def set_controller_gains(self, params):
         for vs in self.all_vehicle_systems:
@@ -49,3 +49,16 @@ class World:
             vs.controller.kd = params[2]  # Derivative gain
             vs.controller.k_path = params[3] # Path gain 
             vs.controller.k_heading = params[4] # heading gain
+
+    def get_estimate_errors(self):
+        # euclidean, angle, vel errors
+        errors = np.zeros((len(self.all_vehicle_systems), len(self.all_vehicle_systems), 3))
+        real_states = [v.vehicle.state for v in self.all_vehicle_systems]
+        real_states = np.array(real_states)
+        for i,v in enumerate(self.all_vehicle_systems):
+            ests = [est.state for est in v.estimates.values()]
+            ests = np.array(ests)
+            diff = np.abs(real_states - ests)
+            errors[i] = [[np.linalg.norm(d[:2]), d[2], d[3]] for d in diff]
+
+        return errors 

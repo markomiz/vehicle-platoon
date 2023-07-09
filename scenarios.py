@@ -18,12 +18,13 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
 
     # Parameters
     timestep = 0.1
-    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps)) /16.0 # Gentle steering angle
-    accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps)) / 5.0  # Gentle acceleration
+    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps)) /10.0 # Gentle steering angle
+    accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps)) / 2.0  # Gentle acceleration
 
     position_history = np.zeros((num_steps, num_cars, 2))
     desired_history = np.zeros((num_steps, num_cars, 2))
-    pos_error_history = np.zeros((num_steps, num_cars))
+    follow_dist_error_history = np.zeros((num_steps, num_cars -1))
+    estimate_errors = np.zeros((num_steps, num_cars, num_cars, 3))
 
     # com_graph = np.zeros((num_cars, num_cars))
     # for i in range(num_cars):
@@ -38,6 +39,11 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
     for step in range(num_steps):
 
         for i, vs in enumerate(world.all_vehicle_systems):
+            position_history[step, i, :] = vs.vehicle.get_state()[:2]
+            if i > 0:
+                follow_dist = np.linalg.norm(position_history[step, i, :] - position_history[step, i-1, :])
+                follow_dist_error = abs(follow_dist - vs.controller.desired_follow_time * vs.vehicle.state[3])
+                follow_dist_error_history[step, i - 1] = follow_dist_error
             
             # Measure GNSS position
             vs.simulate_GNSS( )
@@ -73,28 +79,24 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
                 vs.emit_control_message()
                 vs.emit_estimate_message()
                 
-
-            position_history[step, i, :] = vs.vehicle.get_state()[:2]
-            pos_error_history[step, i] = np.linalg.norm(position_history[step, i, :] - desired_history[step, i, :])
-
-        if scenario == "averaged":
-            for _ in range(num_convergence_steps):
-                for v in world.all_vehicle_systems:
-                    if vs.id > 0:
-                        # calculate control to follow car ahead
-                        vs.compute_averaged_control( timestep )
-
-                for v in world.all_vehicle_systems:
-                    v.emit_control_message()
-
+        estimate_errors[step] = world.get_estimate_errors()
+        
         for v in world.all_vehicle_systems: #
             v.update(timestep)
     if plot:
         plot_poses(position_history, desired_history)
-        plot_errors(pos_error_history)
+        plot_desired_errors(follow_dist_error_history)
+
+        average_errors = np.mean(estimate_errors, axis=0)
+        pos_errors = average_errors[:,:,0]
+        ang_errors = average_errors[:,:,1] * 180 / np.pi
+        vel_errors = average_errors[:,:,2]
+        plot_estimate_errors(pos_errors, "Position (m)")
+        plot_estimate_errors(ang_errors, "Angle (degrees)")
+        plot_estimate_errors(vel_errors, "Speed (m/s)")
     
-    return np.sum(pos_error_history)
+    return np.sum(follow_dist_error_history)
 
 if __name__ == '__main__':
     # run_scenario(num_cars=10)
-    run_scenario(scenario="predictive", num_cars=10)
+    run_scenario(scenario="predictive", num_cars=5, v2x=True)
