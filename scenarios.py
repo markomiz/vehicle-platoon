@@ -91,4 +91,4 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
 
 if __name__ == '__main__':
     # run_scenario(num_cars=10)
-    run_scenario(scenario="predictive", v2v=True, num_cars=2, mpc_horizon=5, network_loss=0.0, num_steps=200)
+    run_scenario(scenario="predictive", v2v=True, num_cars=10, mpc_horizon=5, network_loss=0.0, num_steps=200)

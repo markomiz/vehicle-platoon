@@ -60,7 +60,7 @@ class Controller:
     
     def calculate_desired_states(self, states_to_follow, current_state ):
         states_to_follow = np.array(states_to_follow, dtype='float64')
-        follow_distances = states_to_follow[:,3] * self.desired_follow_time
+        follow_distances = states_to_follow[:,3] * (self.desired_follow_time - 0.1)
         desired_states = states_to_follow * 1.0
         for i, dist in enumerate(follow_distances):
             desired_states[i,0] -= dist * np.cos(current_state[2])
@@ -77,8 +77,7 @@ class Controller:
     def compute_follow_road_control(self, desired_speeds, current_state, dt):
         desired_states = np.zeros((len(desired_speeds), 4))
         next_ctrls = np.zeros((len(desired_speeds), 2))
-        follow_distances = desired_speeds * dt + dt
-        print(follow_distances)
+        follow_distances = desired_speeds * dt 
         last_state = current_state * 1.0
         next_state = last_state * 1.0
         for i, dist in enumerate(follow_distances):
@@ -96,7 +95,6 @@ class Controller:
             next_ctrls[i] = self.reactive_control(last_state, next_state, dt, False)
             last_state = next_state * 1.0
         self.desired_state = desired_states[0] * 1.0
-        print(desired_states)
         # sinple control
         return next_ctrls[:,0], next_ctrls[:,1]
 
