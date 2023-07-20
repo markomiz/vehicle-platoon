@@ -2,7 +2,7 @@ import numpy as np
 from helpers import * 
 from copy import deepcopy
 from scipy.optimize import minimize
-
+from itertools import chain
 from collections import deque
 
 class Controller:
@@ -22,8 +22,11 @@ class Controller:
         self.prev_follows = deque(maxlen=self.buffer_size)
 
         self.dist_weight = 1.0
-        self.angle_weight = 1.0
-        self.vel_weight = 0.2
+        self.angle_weight = 0.6
+        self.vel_weight = 0.6
+        self.discount_factor = 0.7
+
+        
 
     def add_follow_state(self, state):
         # print(self.prev_follows)
@@ -38,6 +41,11 @@ class Controller:
                 behind[0] += dist * np.cos(angle)
                 behind[1] += dist * np.sin(angle)
                 self.prev_follows.append(behind)
+    
+    def replace_follow_states(self, states):
+        self.add_follow_state(states[0]) # to shift the deque along
+        for i, state in enumerate(states):
+            self.prev_follows[i] = state
 
 
 
@@ -72,7 +80,12 @@ class Controller:
         desired_state = self.get_state_from_buffer(follow_distance)
 
         return desired_state
-
+    
+    def calculate_desired_states(self, states_to_follow ):
+        states_to_follow = np.array(states_to_follow)
+        follow_distances = states_to_follow[:,3] * self.desired_follow_time
+        desired_states = [self.get_state_from_buffer(d) for d in follow_distances]
+        return desired_states
 
     def compute_follow_control(self, state_to_follow, current_state, dt):
         self.add_follow_state(state_to_follow)
@@ -105,27 +118,44 @@ class Controller:
 
         return self.clip_control(accelleration, steering_angle)
 
-    def compute_predictive_control(self, other_state, current_state, last_control, dt):
-        self.add_follow_state(other_state)
+    def compute_predictive_control(self, other_states, current_state, last_control, dt):
+        self.add_follow_state(other_states[0])
         # calculate where I want to be in dt
-        desired_state = self.calculate_desired_state(other_state)
-        self.desired_state = desired_state
+        desired_states = self.calculate_desired_states(other_states)
+        self.desired_state = desired_states[0]
+        horizon = len(other_states)
+        initial_guess = np.array([last_control for i in range(horizon)]) 
+        initial_guess = initial_guess.flatten()
+        acc_bounds = [(-self.max_acc,self.max_acc) for i in range(horizon) ]
+        steer_bounds = [(-self.max_steer,self.max_steer) for i in range(horizon) ]
+        bounds = list(chain.from_iterable(zip(acc_bounds,steer_bounds)))
+        res = minimize(self.to_minimise, initial_guess, (desired_states, current_state, dt), method="Powell", tol=0.01, bounds=bounds)
+        res = np.array(res.x)
+        res = res.reshape((horizon,2))
+        acc = res[:,0]
+        steer = res[:,1]
 
-        res = minimize(self.to_minimise, last_control, (desired_state, current_state, dt), method='Powell', bounds=[(-self.max_acc,self.max_acc), (-self.max_steer,self.max_steer)])
-        acc = res.x[0]
-        steer = res.x[1]
-
-        return self.clip_control(acc, steer)
+        return acc, steer
     
-    def to_minimise(self, x, desired, current_state, dt ):
+    def to_minimise(self, all_x, all_desired, start_state, dt ):
+        current_state = start_state
         # x = self.clip_control(x[0], x[1])
-        new_state = self.simple_single_track(current_state, x, dt)
-        diff = desired - new_state
-        dist_error = (diff[0] **2 + diff[1] **2) * self.dist_weight
-        angle_error = diff[2] **2 * self.angle_weight
-        vel_error = diff[3] ** 2 * self.vel_weight
-        total_cost = dist_error + angle_error + vel_error
-        return total_cost
+        total_error = 0.0
+        current_discount = 1.0
+        all_x = np.array(all_x)
+        n_ctrl = int(len(all_x) / 2)
+        all_x = all_x.reshape((n_ctrl, 2))
+        for i, x in enumerate(all_x):
+            new_state = self.simple_single_track(current_state, x, dt)
+            desired = all_desired[i]
+            diff = desired - new_state
+            dist_error = (diff[0] **2 + diff[1] **2) * self.dist_weight
+            angle_error = diff[2] **2 * self.angle_weight
+            vel_error = diff[3] ** 2 * self.vel_weight
+            total_cost = dist_error + angle_error + vel_error
+            total_error += total_cost * current_discount
+            current_discount *= self.discount_factor
+        return total_error
 
     def simple_single_track(self, state,  controls, dt):
         wheelbase = 2.5

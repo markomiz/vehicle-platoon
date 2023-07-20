@@ -8,9 +8,9 @@ class VehicleEstimator:
         self.covariance = np.array(initial_covariance)
         self.wheelbase = wheelbase
 
-    def prediction(self, steering_angle, acceleration, dt, replace = True):
+    def prediction(self, state, steering_angle, acceleration, dt, replace = True):
         # Motion model
-        new_state = deepcopy(self.state)
+        new_state = deepcopy(state)
         new_covariance = deepcopy(self.covariance)
         new_state[3] += acceleration * dt
         new_state[2] += (new_state[3] * np.tan(steering_angle)) / self.wheelbase * dt
@@ -40,6 +40,15 @@ class VehicleEstimator:
             self.state = new_state
         
         return new_state, new_covariance
+
+    def predictions(self, state, steers, accs, dt):
+        new_state = state[:]
+        all_states = []
+        for i in range(len(steers)):
+            state, _, = self.prediction(new_state, steers[i], accs[i], dt, replace=False)
+            all_states.append(state)
+        return all_states
+
 
     def measurement(self, measured_state, measurement_model, measurement_covariance):
         # Compute the Jacobian of the measurement model
@@ -76,7 +85,7 @@ class VehicleEstimator:
         measurement_model = lambda state: state[:]
         self.measurement(est_state, measurement_model, covariance)
 
-    def compute_jacobian(self, function, epsilon=1e-5):
+    def compute_jacobian(self, function, epsilon=1e-7):
         num_states = len(self.state)
         num_outputs = len(function(self.state))
 

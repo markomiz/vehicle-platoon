@@ -11,15 +11,18 @@ from world import *
 from plotting import *
 
 
-def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot=True, num_convergence_steps=1, v2x=True):
+def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot=True, mpc_horizon=1, v2v=True, network_loss=0.0):
 
     if world is None:
-        world = World(num_cars)
+        world = World(num_cars, mpc_horizon=mpc_horizon, network_loss=network_loss )
 
     # Parameters
     timestep = 0.1
-    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps)) /10.0 # Gentle steering angle
-    accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps)) / 2.0  # Gentle acceleration
+    road_points_x = np.linspace(0,1000, 10000)
+    road_points_y = np.sin(road_points_x / 10) * 2 
+    road_points = np.stack((road_points_x,road_points_y))
+    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps + mpc_horizon)) / 10.0 # Gentle steering angle
+    accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps + mpc_horizon)) / 2.0  # Gentle acceleration
 
     position_history = np.zeros((num_steps, num_cars, 2))
     desired_history = np.zeros((num_steps, num_cars, 2))
@@ -72,10 +75,10 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
                     vs.compute_predictive_control( timestep )
                 else:
                     vs.compute_follow_control( timestep )
-                desired_history[step, i, :] = vs.controller.desired_state[:2]
+                desired_history[step, i, :] = vs.controller.desired_state[:2] 
             else:
-                vs.set_next_ctrl(steering_angles[step], accelerations[step])
-            if v2x:
+                vs.set_next_ctrl(steering_angles[step:step+mpc_horizon], accelerations[step:step+mpc_horizon])
+            if v2v:
                 vs.emit_control_message()
                 vs.emit_estimate_message()
                 
@@ -92,11 +95,11 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
         ang_errors = average_errors[:,:,1] * 180 / np.pi
         vel_errors = average_errors[:,:,2]
         plot_estimate_errors(pos_errors, "Position (m)")
-        plot_estimate_errors(ang_errors, "Angle (degrees)")
-        plot_estimate_errors(vel_errors, "Speed (m/s)")
+        # plot_estimate_errors(ang_errors, "Angle (degrees)")
+        # plot_estimate_errors(vel_errors, "Speed (m/s)")
     
     return np.sum(follow_dist_error_history)
 
 if __name__ == '__main__':
     # run_scenario(num_cars=10)
-    run_scenario(scenario="predictive", num_cars=5, v2x=True)
+    run_scenario(scenario="predictive", num_cars=10, mpc_horizon=10)

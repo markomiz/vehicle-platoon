@@ -6,6 +6,7 @@ from controller import *
 from vehicle_system import *
 from helpers import *
 from copy import deepcopy
+from random import random
 
 # TODO 
 """ 
@@ -16,7 +17,8 @@ from copy import deepcopy
 """
 
 class World:
-    def __init__(self, num_cars=2):
+    def __init__(self, num_cars=2, network_loss=0.0, mpc_horizon=10):
+        self.network_packet_loss = network_loss
         self.all_vehicle_systems = []
         self.all_vehicle_estimates = dict.fromkeys(range(num_cars))
 
@@ -28,18 +30,22 @@ class World:
             system = VehicleSystem(vehicle, Controller(), self, i)
             self.all_vehicle_systems.append(system)
             self.all_vehicle_estimates[i] = estimator
-            system.next_steers = np.zeros(num_cars)
-            system.next_accs = np.zeros(num_cars)
+            system.next_steers = np.zeros((num_cars, mpc_horizon))
+            system.next_accs = np.zeros((num_cars, mpc_horizon))
+            self.mpc_horizon = mpc_horizon
         
         for car in self.all_vehicle_systems:
             car.estimates = deepcopy(self.all_vehicle_estimates)
+            car.last_control_update_times = np.zeros(num_cars)
 
     def transmit_control_message(self, id, steer, accel):
         for vs in self.all_vehicle_systems:
+            if random() < self.network_packet_loss: continue
             vs.recieve_control_message(id, steer, accel)
 
     def transmit_estimate(self, id, state, cov, from_id):
         for vs in self.all_vehicle_systems:
+            if random() < self.network_packet_loss: continue
             vs.receive_estimate_message(id, state, cov, from_id)
 
     def set_controller_gains(self, params):
@@ -49,6 +55,13 @@ class World:
             vs.controller.kd = params[2]  # Derivative gain
             vs.controller.k_path = params[3] # Path gain 
             vs.controller.k_heading = params[4] # heading gain
+    
+    def set_controller_costs(self,params):
+        for vs in self.all_vehicle_systems:
+            vs.dist_weight = params[0]
+            vs.angle_weight = params[1]
+            vs.vel_weight = params[2]
+            vs.discount_factor = params[3]
 
     def get_estimate_errors(self):
         # euclidean, angle, vel errors

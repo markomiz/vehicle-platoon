@@ -1,4 +1,4 @@
-import random
+from random import uniform, sample
 import numpy as np
 import matplotlib.pyplot as plt
 from vehicle import *
@@ -12,71 +12,90 @@ from plotting import *
 from scenarios import *
 
 # Set the limits for each gain
-parameter_limits = [(0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0)]
+parameter_limits_reactive = [(0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0)]
+
+parameter_limits_predictive = [(1.0,1.0), (0.2,1.0), (0.4,1.0), (0.5, 1.0)]
 
 # Define the evaluation function (simulation)
-def evaluate_controller(parameters):
-    world = World()
+def evaluate_controller_reactive(parameters):
+    world = World(num_cars=5)
     world.set_controller_gains(parameters)
     fitness = run_scenario(world=world, plot=False, num_cars=5)
     return fitness
 
-# Define the genetic algorithm parameters
-population_size = 100
-generations = 100
-mutation_rate = 0.1
-tournament_size = 3
-elite_size = 5
+def evaluate_controller_predictive(parameters):
+    print("Evaluating params - ", parameters)
+    world = World(num_cars=10, mpc_horizon=5)
+    world.set_controller_costs(parameters)
+    fitness = run_scenario(scenario='predictive', world=world, plot=False, num_cars=10, mpc_horizon=5)
+    return fitness
 
-# Generate initial population
-population = []
-for _ in range(population_size):
-    individual = [random.uniform(limit[0], limit[1]) for limit in parameter_limits]
-    population.append(individual)
+def tune(evaluate_controller_fn, parameter_limits):
 
-# Run the genetic algorithm
-for generation in range(generations):
-    # Evaluate fitness for each individual in the population
-    fitness_scores = [evaluate_controller(individual) for individual in population]
+    # Define the genetic algorithm parameters
+    population_size = 10
+    generations = 10
+    mutation_rate = 0.1
+    tournament_size = 3
+    elite_size = 4
 
-    # Select the best individuals for the next generation (elitism)
-    elite_indices = sorted(range(len(fitness_scores)), key=lambda k: fitness_scores[k])[:elite_size]
-    next_generation = [population[i] for i in elite_indices]
-    # Apply tournament selection and crossover to create offspring
-    while len(next_generation) < population_size:
-        tournament = random.sample(range(population_size), tournament_size)
-        tournament_fitness = [fitness_scores[i] for i in tournament]
+    # Generate initial population
+    population = []
+    for _ in range(population_size):
+        individual = [uniform(limit[0], limit[1]) for limit in parameter_limits]
+        population.append(individual)
 
-        # Find the indices of the best individuals in the tournament
-        selected_indices = [tournament[i] for i in sorted(range(len(tournament)), key=lambda k: tournament_fitness[k])[:tournament_size]]
-        parents = [population[i] for i in selected_indices]
+    # Run the genetic algorithm
+    for generation in range(generations):
+        print(generation)
+        # Evaluate fitness for each individual in the population
+        fitness_scores = [evaluate_controller_fn(individual) for individual in population]
 
-        # Perform crossover
-        offspring = []
-        for i in range(len(parameter_limits)):
-            parent1_val = parents[0][i]
-            parent2_val = parents[1][i]
-            offspring_val = random.uniform(min(parent1_val, parent2_val), max(parent1_val, parent2_val))
-            offspring.append(offspring_val)
+        # Select the best individuals for the next generation (elitism)
+        elite_indices = sorted(range(len(fitness_scores)), key=lambda k: fitness_scores[k])[:elite_size]
+        next_generation = [population[i] for i in elite_indices]
+        # Apply tournament selection and crossover to create offspring
+        while len(next_generation) < population_size:
+            print("creating next generation")
+            tournament = sample(range(population_size), tournament_size)
+            tournament_fitness = [fitness_scores[i] for i in tournament]
 
-        # Perform mutation
-        for i in range(len(parameter_limits)):
-            if random.random() < mutation_rate:
-                offspring[i] = random.uniform(parameter_limits[i][0], parameter_limits[i][1])
+            # Find the indices of the best individuals in the tournament
+            selected_indices = [tournament[i] for i in sorted(range(len(tournament)), key=lambda k: tournament_fitness[k])[:tournament_size]]
+            parents = [population[i] for i in selected_indices]
 
-        next_generation.append(offspring)
+            # Perform crossover
+            offspring = []
+            for i in range(len(parameter_limits)):
+                parent1_val = parents[0][i]
+                parent2_val = parents[1][i]
+                offspring_val = uniform(min(parent1_val, parent2_val), max(parent1_val, parent2_val))
+                offspring.append(offspring_val)
 
-    # Replace the current population with the new generation
-    population = next_generation
+            # Perform mutation
+            for i in range(len(parameter_limits)):
+                if random() < mutation_rate:
+                    offspring[i] = uniform(parameter_limits[i][0], parameter_limits[i][1])
 
-# Evaluate fitness for the final population
-fitness_scores = [evaluate_controller(individual) for individual in population]
+            next_generation.append(offspring)
 
-# Get the best individual and its fitness value
-best_index = min(range(len(fitness_scores)), key=lambda k: fitness_scores[k])
-best_individual = population[best_index]
-best_fitness = fitness_scores[best_index]
+        # Replace the current population with the new generation
+        population = next_generation
 
-# Print the best individual and its fitness value
-print("Best individual:", best_individual)
-print("Best fitness:", best_fitness)
+    # Evaluate fitness for the final population
+    fitness_scores = [evaluate_controller_fn(individual) for individual in population]
+
+    # Get the best individual and its fitness value
+    best_index = min(range(len(fitness_scores)), key=lambda k: fitness_scores[k])
+    best_individual = population[best_index]
+    best_fitness = fitness_scores[best_index]
+
+    # Print the best individual and its fitness value
+    print("Best individual:", best_individual)
+    print("Best fitness:", best_fitness)
+
+
+tune(evaluate_controller_predictive, parameter_limits_predictive)
+
+# Best individual: [1.0, 0.37310083654123083, 0.5583108612141288, 0.7483315175023132]
+# Best fitness: 479.50515125186695
