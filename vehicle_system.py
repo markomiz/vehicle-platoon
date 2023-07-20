@@ -1,9 +1,9 @@
 from helpers import *
 
-gnss_uncertainty = 0.01  # Reasonable GNSS measurement uncertainty (in meters)
-speedometer_uncertainty = 0.01  # Reasonable speedometer measurement uncertainty (in m/s)
-compass_uncertainty = 0.001 # Reasonable compass measurement uncertainty
-lidar_uncertainty = 0.001 # Reasonable lidar measurement uncertainty
+gnss_uncertainty = 0.1  # Reasonable GNSS measurement uncertainty (in meters)
+speedometer_uncertainty = 0.1  # Reasonable speedometer measurement uncertainty (in m/s)
+compass_uncertainty = 0.01 # Reasonable compass measurement uncertainty
+lidar_uncertainty = 0.01 # Reasonable lidar measurement uncertainty
 
 class VehicleSystem:
     def __init__(self, vehicle, controller, world, id): 
@@ -76,20 +76,22 @@ class VehicleSystem:
         self.estimates[other_vehicle.id].lidar_measurement(measured_pos, lidar_covariance)
 
     def recieve_control_message(self, other_id, steer, accelleration):
-        if abs(other_id - self.id) > 2 : return # only get messages from 2 cars away
+        if abs(other_id - self.id) > 3 : return # only get messages from 2 cars away
         self.next_steers[other_id] = steer
         self.next_accs[other_id] = accelleration
         self.last_control_update_times[other_id] = self.current_time
 
     def emit_control_message(self): 
-        self.world.transmit_control_message(self.id, self.next_steers[self.id], self.next_accs[self.id])
+        for i in range(len(self.next_steers)):
+            if abs(self.id - i) > 3: return 
+            self.world.transmit_control_message(i, self.next_steers[i], self.next_accs[i])
 
     def receive_estimate_message(self, id, state, covariance, from_id):
         if from_id == self.id: return # don't update own estimate with own estimate 
-        if abs(self.id - from_id) > 2: return # only get messages from 2 cars away
+        if abs(self.id - from_id) > 3: return # only get messages from 3 cars away
         self.estimates[id].incorp_others_estimate(state, covariance)
 
     def emit_estimate_message(self):
         for i, est in enumerate(self.estimates.values()):
-            if abs(self.id - i) > 2: return # only send messages from 2 cars away
+            if abs(self.id - i) > 3: return # only send messages from 3 cars away
             self.world.transmit_estimate(i, est.state, est.covariance, self.id)
