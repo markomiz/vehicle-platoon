@@ -12,42 +12,30 @@ from plotting import *
 
 
 def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot=True, mpc_horizon=1, v2v=True, network_loss=0.0):
-
-    if world is None:
-        world = World(num_cars, mpc_horizon=mpc_horizon, network_loss=network_loss )
-
     # Parameters
     timestep = 0.1
-    road_points_x = np.linspace(0,1000, 10000)
-    road_points_y = np.sin(road_points_x / 10) * 2 
-    road_points = np.stack((road_points_x,road_points_y))
-    steering_angles = np.sin(np.linspace(0, 10*np.pi, num_steps + mpc_horizon)) / 10.0 # Gentle steering angle
-    accelerations = np.sin(np.linspace(0, 4*np.pi, num_steps + mpc_horizon)) / 2.0  # Gentle acceleration
+    road_points_x = np.linspace(-1000,1000, 20000)
+    # road_points_y = np.piecewise(road_points_x, [road_points_x < 0, road_points_x >= 0], [0.0,0.0])
+    road_points_y = np.piecewise(road_points_x, [road_points_x < 0, road_points_x >= 0], [0.0, lambda road_points_x: np.cos(road_points_x/ 15) * 2 - 2 ])
+    road_points = np.stack((road_points_x,road_points_y), axis=1)
+    road_speeds = np.ones(num_steps + 10) * 10
+
+    if world is None:
+        world = World(num_cars, mpc_horizon=mpc_horizon, network_loss=network_loss, road_points=road_points )
 
     position_history = np.zeros((num_steps, num_cars, 2))
     desired_history = np.zeros((num_steps, num_cars, 2))
     follow_dist_error_history = np.zeros((num_steps, num_cars -1))
     estimate_errors = np.zeros((num_steps, num_cars, num_cars, 3))
-
-    # com_graph = np.zeros((num_cars, num_cars))
-    # for i in range(num_cars):
-    #     for j in range(num_cars):
-    #         if abs(i-j) == 1:
-    #             com_graph[i, j] = 1
-
-    # print(com_graph)
-
-
     # Run the estimation test loop
     for step in range(num_steps):
 
         for i, vs in enumerate(world.all_vehicle_systems):
-            position_history[step, i, :] = vs.vehicle.get_state()[:2]
-            if i > 0:
-                follow_dist = np.linalg.norm(position_history[step, i, :] - position_history[step, i-1, :])
-                follow_dist_error = abs(follow_dist - vs.controller.desired_follow_time * vs.vehicle.state[3])
+            position_history[step, i, :] = vs.vehicle.get_state()[:2] * 1.0
+            if i > 0 and step >0:
+                follow_dist = np.linalg.norm(position_history[step, i, :] - desired_history[step -1, i, :])
+                follow_dist_error = follow_dist #  - vs.controller.desired_follow_time * vs.vehicle.state[3]
                 follow_dist_error_history[step, i - 1] = follow_dist_error
-            
             # Measure GNSS position
             vs.simulate_GNSS( )
 
@@ -66,18 +54,19 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
                 vsyst_behind = world.all_vehicle_systems[i+1]
                 vs.simulate_lidar( vsyst_behind )
 
-            # first each predicts where the others will be
-            # then they each create a control without knowledge of neighbour controls
-            # then they repeatedly recalculate controls based on where they predict they will be based on these controls
             if vs.id > 0:
                 # calculate control to follow car ahead
                 if scenario == "predictive":
                     vs.compute_predictive_control( timestep )
                 else:
                     vs.compute_follow_control( timestep )
-                desired_history[step, i, :] = vs.controller.desired_state[:2] 
+                 
             else:
-                vs.set_next_ctrl(steering_angles[step:step+mpc_horizon], accelerations[step:step+mpc_horizon])
+                vs.compute_follow_road_control( road_speeds[step:step + mpc_horizon ], timestep )
+
+            desired_history[step, i, :] = vs.controller.desired_state[:2] * 1.0
+
+
             if v2v:
                 vs.emit_control_message()
                 vs.emit_estimate_message()
@@ -102,4 +91,4 @@ def run_scenario(scenario="simple", num_steps=100,  num_cars=2, world=None, plot
 
 if __name__ == '__main__':
     # run_scenario(num_cars=10)
-    run_scenario(scenario="predictive", num_cars=10, mpc_horizon=10)
+    run_scenario(scenario="predictive", v2v=True, num_cars=2, mpc_horizon=5, network_loss=0.0, num_steps=200)

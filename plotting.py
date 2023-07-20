@@ -13,16 +13,17 @@ from world import *
 OFFSET = 10
 
 def plot_poses(poses, desired_poses=[]):
-    CMAP = cm.get_cmap("Wistia")
+    CMAP = cm.get_cmap("cividis")
 
     fig = plt.figure()
     ax = plt.subplot(111)
 
-    ax.plot(poses[:, 0, 0], poses[:,0,1], label='Lead Vehicle')
+    ax.plot(poses[:, 0, 0], poses[:,0,1], label='Lead Vehicle', color=CMAP(1.0))
+    ax.plot(desired_poses[:, 0, 0], desired_poses[:,0,1] , label='Lead Desired ', linestyle="dotted",color=CMAP(1.0) )
     N = poses.shape[1]
     for i in range(1,N):
         ax.plot(poses[:, i, 0], poses[:,i,1] - 5 * i, label='Follower ' + str(i), color=CMAP(float(i)/N))
-        ax.plot(desired_poses[:, i, 0], desired_poses[:,i,1] - 5* i, label='Desired ' + str(i), linestyle="dotted", color=CMAP(float(i)/N))
+        ax.plot(desired_poses[:, i, 0], desired_poses[:,i,1] - 5* i, label='Desired ' + str(i), linestyle="dotted", color=CMAP(float(i - 1)/N))
 
     # Shrink current axis by 20%
     box = ax.get_position()
@@ -32,9 +33,9 @@ def plot_poses(poses, desired_poses=[]):
     plt.show()
 
 def plot_desired_errors(errors):
-    CMAP = cm.get_cmap("Wistia")
+    CMAP = cm.get_cmap("cividis")
     N = errors.shape[1]
-    for i in range(1,N):
+    for i in range(0,N):
         plt.plot(range(errors.shape[0]), errors[:,i] , label='Follower ' + str(i), color=CMAP(float(i)/N))
 
     plt.legend()

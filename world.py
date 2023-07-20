@@ -17,14 +17,14 @@ from random import random
 """
 
 class World:
-    def __init__(self, num_cars=2, network_loss=0.0, mpc_horizon=10):
+    def __init__(self, num_cars=2, network_loss=0.0, mpc_horizon=10, road_points=None):
         self.network_packet_loss = network_loss
         self.all_vehicle_systems = []
         self.all_vehicle_estimates = dict.fromkeys(range(num_cars))
 
         for i in range(num_cars):
             # Create a Vehicle
-            initial_state = np.array([-i * 0.5 * 10 , 0, 0.0, 10. ])  # [x, y, theta, speed]
+            initial_state = np.array([-i * 0.5 * 10 , 0, 0.0, 10. ], dtype='float64')  # [x, y, theta, speed]
             vehicle = Vehicle(initial_state)
             estimator = VehicleEstimator(deepcopy(initial_state), np.diag([1.,1.,0.1,1]))
             system = VehicleSystem(vehicle, Controller(), self, i)
@@ -37,6 +37,7 @@ class World:
         for car in self.all_vehicle_systems:
             car.estimates = deepcopy(self.all_vehicle_estimates)
             car.last_control_update_times = np.zeros(num_cars)
+            car.controller.road_points = road_points
 
     def transmit_control_message(self, id, steer, accel):
         for vs in self.all_vehicle_systems:
@@ -70,8 +71,8 @@ class World:
         real_states = np.array(real_states)
         for i,v in enumerate(self.all_vehicle_systems):
             ests = [est.state for est in v.estimates.values()]
-            ests = np.array(ests)
-            diff = np.abs(real_states - ests)
+            ests = np.array(ests, dtype='float64')
+            diff = np.abs(real_states - ests, dtype='float64')
             errors[i] = [[np.linalg.norm(d[:2]), d[2], d[3]] for d in diff]
 
         return errors 

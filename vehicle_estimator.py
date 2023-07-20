@@ -4,11 +4,11 @@ from copy import deepcopy
 
 class VehicleEstimator:
     def __init__(self, initial_state, initial_covariance, wheelbase=2.5):
-        self.state = np.array(initial_state)  # [x, y, theta, speed]
-        self.covariance = np.array(initial_covariance)
+        self.state = np.array(initial_state, dtype='float64')  # [x, y, theta, speed]
+        self.covariance = np.array(initial_covariance, dtype='float64')
         self.wheelbase = wheelbase
 
-    def prediction(self, state, steering_angle, acceleration, dt, replace = True):
+    def prediction(self, state, cov, steering_angle, acceleration, dt, replace = True):
         # Motion model
         new_state = deepcopy(state)
         new_covariance = deepcopy(self.covariance)
@@ -24,13 +24,13 @@ class VehicleEstimator:
         F = np.array([[1, 0, -new_state[3] * np.sin(new_state[2]) * dt, np.cos(new_state[2]) * dt],
                       [0, 1, new_state[3] * np.cos(new_state[2]) * dt, np.sin(new_state[2]) * dt],
                       [0, 0, 1, dt* np.tan(steering_angle)/self.wheelbase],
-                      [0, 0, 0, 1]])
+                      [0, 0, 0, 1]], dtype='float64')
 
         # Process noise covariance # TODO : get better idea of this...s
         Q = np.array([[0.05, 0, 0, 0],
                       [0, 0.05, 0, 0],
                       [0, 0, 0.05, 0],
-                      [0, 0, 0, 0.05]])
+                      [0, 0, 0, 0.05]], dtype='float64')
 
         # Update the covariance based on motion model
         new_covariance = np.matmul(np.matmul(F, new_covariance), F.T) + Q
@@ -41,16 +41,18 @@ class VehicleEstimator:
         
         return new_state, new_covariance
 
-    def predictions(self, state, steers, accs, dt):
-        new_state = state[:]
+    def predictions(self, state, cov, steers, accs, dt):
+        new_state = state * 1.0
+        new_cov = cov* 1.0
         all_states = []
         for i in range(len(steers)):
-            state, _, = self.prediction(new_state, steers[i], accs[i], dt, replace=False)
+            new_state, new_cov, = self.prediction(new_state, new_cov, steers[i], accs[i], dt, replace=False)
             all_states.append(state)
         return all_states
 
 
     def measurement(self, measured_state, measurement_model, measurement_covariance):
+
         # Compute the Jacobian of the measurement model
         H = self.compute_jacobian(measurement_model)
         # Calculate the measurement residual

@@ -21,9 +21,9 @@ class VehicleSystem:
 
     def set_next_ctrl(self, steer, acc): 
         self.next_steers[self.id] = steer
-        self.next_steers = np.array(self.next_steers)
+        self.next_steers = np.array(self.next_steers,dtype='float64')
         self.next_accs[self.id] = acc
-        self.next_accs = np.array(self.next_accs)
+        self.next_accs = np.array(self.next_accs, dtype='float64')
         self.can_update = True
 
     def update(self, dt): 
@@ -34,20 +34,24 @@ class VehicleSystem:
                 if len(self.next_steers[0]) > 1:
                     last_est = int(self.current_time - self.last_control_update_times[i])
                     last_est = min(last_est, len(self.next_steers[i]) - 1)
-                    estimate.prediction(estimate.state, self.next_steers[i,last_est], self.next_accs[i,last_est], dt)
+                    estimate.prediction(estimate.state, estimate.covariance, self.next_steers[i,last_est], self.next_accs[i,last_est], dt)
                 else:
-                    estimate.prediction(estimate.state, self.next_steers[i], self.next_accs[i], dt)
+                    estimate.prediction(estimate.state, estimate.covariance, self.next_steers[i], self.next_accs[i], dt)
             self.can_update = False
             self.current_time += 1
 
     def compute_follow_control(self, dt):
-        acc, steer = self.controller.compute_follow_control(self.estimates[self.id - 1].state, self.estimates[self.id].state, dt )
+        acc, steer = self.controller.compute_follow_control(self.estimates[self.id - 1].state * 1.0, self.estimates[self.id].state * 1.0, dt )
+        self.set_next_ctrl(steer, acc)
+
+    def compute_follow_road_control(self,speed, dt):
+        acc, steer = self.controller.compute_follow_road_control(speed, self.estimates[self.id].state * 1.0, dt )
         self.set_next_ctrl(steer, acc)
         
     
     def compute_predictive_control(self, dt):
         idf = self.id -1
-        predicted_states = self.estimates[idf].predictions(self.estimates[idf].state, self.next_steers[idf], self.next_accs[idf], dt)
+        predicted_states = self.estimates[idf].predictions(self.estimates[idf].state, self.estimates[idf].covariance,  self.next_steers[idf], self.next_accs[idf], dt)
         last_control = [self.next_accs[self.id,0],self.next_steers[self.id,0]] 
         acc, steer = self.controller.compute_predictive_control(predicted_states, self.estimates[self.id].state ,last_control, dt)
         self.set_next_ctrl(steer, acc)

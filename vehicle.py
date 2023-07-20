@@ -5,7 +5,7 @@ from helpers import *
 
 class Vehicle:
     def __init__(self, state, wheelbase=2.5):
-        self.state = np.array(state)  # [x, y, theta, speed]
+        self.state = np.array(state, dtype='float64')  # [x, y, theta, speed]
         self.wheelbase = wheelbase
 
     def noisy_single_track_update(self, steering_angle, acceleration, dt):
