@@ -24,9 +24,9 @@ class World:
 
         for i in range(num_cars):
             # Create a Vehicle
-            initial_state = np.array([-i * 0.5 * 10 , 0, 0.0, 10. ], dtype='float64')  # [x, y, theta, speed]
+            initial_state = np.array([-i * 0.51 * 10 , 0, 0.0, 10. ], dtype='float64')  # [x, y, theta, speed]
             vehicle = Vehicle(initial_state)
-            estimator = VehicleEstimator(deepcopy(initial_state), np.diag([1.,1.,0.1,1]))
+            estimator = VehicleEstimator(deepcopy(initial_state), np.diag([0.5,0.5,0.1,0.5]))
             system = VehicleSystem(vehicle, Controller(), self, i)
             self.all_vehicle_systems.append(system)
             self.all_vehicle_estimates[i] = estimator
@@ -39,10 +39,10 @@ class World:
             car.last_control_update_times = np.zeros(num_cars)
             car.controller.road_points = road_points
 
-    def transmit_control_message(self, id, steer, accel):
+    def transmit_control_message(self, id, steer, accel, from_id):
         for vs in self.all_vehicle_systems:
             if random() < self.network_packet_loss: continue
-            vs.recieve_control_message(id, steer, accel)
+            vs.recieve_control_message(id, steer, accel, from_id)
 
     def transmit_estimate(self, id, state, cov, from_id):
         for vs in self.all_vehicle_systems:
@@ -72,7 +72,7 @@ class World:
         for i,v in enumerate(self.all_vehicle_systems):
             ests = [est.state for est in v.estimates.values()]
             ests = np.array(ests, dtype='float64')
-            diff = np.abs(real_states - ests, dtype='float64')
+            diff = real_states - ests
             errors[i] = [[np.linalg.norm(d[:2]), d[2], d[3]] for d in diff]
 
         return errors 

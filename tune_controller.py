@@ -24,20 +24,22 @@ def evaluate_controller_reactive(parameters):
     return fitness
 
 def evaluate_controller_predictive(parameters):
+    steps = 50
     print("Evaluating params - ", parameters)
-    world = World(num_cars=10, mpc_horizon=5)
+    road_points, road_speeds = create_test_road(steps)
+    world = World(num_cars=5, mpc_horizon=3, road_points=road_points)
     world.set_controller_costs(parameters)
-    fitness = run_scenario(scenario='predictive', world=world, plot=False, num_cars=10, mpc_horizon=5)
+    fitness = run_scenario(scenario='predictive', world=world, plot=False, num_cars=5, mpc_horizon=3, num_steps=steps)
     return fitness
 
 def tune(evaluate_controller_fn, parameter_limits):
 
     # Define the genetic algorithm parameters
-    population_size = 10
+    population_size = 20
     generations = 10
-    mutation_rate = 0.1
+    mutation_rate = 0.2
     tournament_size = 3
-    elite_size = 4
+    elite_size = 2
 
     # Generate initial population
     population = []

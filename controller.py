@@ -24,7 +24,7 @@ class Controller:
         self.dist_weight = 1.0
         self.angle_weight = 0.5
         self.vel_weight = 0.6
-        self.discount_factor = 0.9
+        self.discount_factor = 0.95
         
         self.road_points = []
 
@@ -77,7 +77,7 @@ class Controller:
     def compute_follow_road_control(self, desired_speeds, current_state, dt):
         desired_states = np.zeros((len(desired_speeds), 4))
         next_ctrls = np.zeros((len(desired_speeds), 2))
-        follow_distances = desired_speeds * dt 
+        follow_distances = desired_speeds * (dt ) + 2 
         last_state = current_state * 1.0
         next_state = last_state * 1.0
         for i, dist in enumerate(follow_distances):

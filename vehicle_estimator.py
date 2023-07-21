@@ -27,10 +27,11 @@ class VehicleEstimator:
                       [0, 0, 0, 1]], dtype='float64')
 
         # Process noise covariance # TODO : get better idea of this...s
-        Q = np.array([[0.05, 0, 0, 0],
-                      [0, 0.05, 0, 0],
-                      [0, 0, 0.05, 0],
-                      [0, 0, 0, 0.05]], dtype='float64')
+        pn = 0.05
+        Q = np.array([[pn, 0, 0, 0],
+                      [0, pn, 0, 0],
+                      [0, 0, pn, 0],
+                      [0, 0, 0, pn]], dtype='float64')
 
         # Update the covariance based on motion model
         new_covariance = np.matmul(np.matmul(F, new_covariance), F.T) + Q
