@@ -14,30 +14,33 @@ from scenarios import *
 # Set the limits for each gain
 parameter_limits_reactive = [(0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0), (0.1, 10.0)]
 
-parameter_limits_predictive = [(1.0,1.0), (0.2,1.0), (0.4,1.0), (0.5, 1.0)]
+# pos error, angle error, vel error, acc cost, steer cost
+parameter_limits_predictive = [(1.0,1.0), (0.0,1.0), (0.0,1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
 
 # Define the evaluation function (simulation)
 def evaluate_controller_reactive(parameters):
-    world = World(num_cars=5)
+    steps = 50
+    road_points, road_speeds = create_test_road(steps)
+    world = World(num_cars=2, mpc_horizon=1, road_points=road_points)
     world.set_controller_gains(parameters)
-    fitness = run_scenario(world=world, plot=False, num_cars=5)
+    fitness = run_scenario(world=world, plot=False, num_cars=2, num_steps=steps)
     return fitness
 
 def evaluate_controller_predictive(parameters):
-    steps = 50
+    steps = 20
     print("Evaluating params - ", parameters)
     road_points, road_speeds = create_test_road(steps)
-    world = World(num_cars=5, mpc_horizon=3, road_points=road_points)
+    world = World(num_cars=3, mpc_horizon=3, road_points=road_points)
     world.set_controller_costs(parameters)
-    fitness = run_scenario(scenario='predictive', world=world, plot=False, num_cars=5, mpc_horizon=3, num_steps=steps)
+    fitness = run_scenario(scenario='predictive', world=world, plot=False, num_cars=3, mpc_horizon=3, num_steps=steps)
     return fitness
 
 def tune(evaluate_controller_fn, parameter_limits):
 
     # Define the genetic algorithm parameters
     population_size = 20
-    generations = 10
-    mutation_rate = 0.2
+    generations = 100
+    mutation_rate = 0.1
     tournament_size = 3
     elite_size = 2
 
@@ -98,6 +101,6 @@ def tune(evaluate_controller_fn, parameter_limits):
 
 
 tune(evaluate_controller_predictive, parameter_limits_predictive)
+# tune(evaluate_controller_reactive,parameter_limits_reactive )
 
-# Best individual: [1.0, 0.37310083654123083, 0.5583108612141288, 0.7483315175023132]
-# Best fitness: 479.50515125186695
+

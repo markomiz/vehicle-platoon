@@ -62,7 +62,9 @@ class World:
             vs.dist_weight = params[0]
             vs.angle_weight = params[1]
             vs.vel_weight = params[2]
-            vs.discount_factor = params[3]
+            vs.acc_weight = params[3]
+            vs.steer_weight = params[4]
+            vs.discount_factor = params[5]
 
     def get_estimate_errors(self):
         # euclidean, angle, vel errors
@@ -73,6 +75,6 @@ class World:
             ests = [est.state for est in v.estimates.values()]
             ests = np.array(ests, dtype='float64')
             diff = real_states - ests
-            errors[i] = [[np.linalg.norm(d[:2]), d[2], d[3]] for d in diff]
+            errors[i] = [[np.linalg.norm(d[:2]), np.abs(d[2]), np.abs(d[3])] for d in diff]
 
         return errors 

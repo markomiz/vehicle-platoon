@@ -49,11 +49,11 @@ def averaged_control(num_cars=15, num_convergence_steps=1):
             # Lidar ahead and behind
             if i - 1 >= 0:
                 vsyst_in_front = world.all_vehicle_systems[i-1]
-                vs.simulate_lidar( vsyst_in_front)
+                vs.simulate_range( vsyst_in_front)
             
             if i + 1 < len(world.all_vehicle_systems):
                 vsyst_behind = world.all_vehicle_systems[i+1]
-                vs.simulate_lidar( vsyst_behind)
+                vs.simulate_range( vsyst_behind)
 
             if vs.id > 0:
                 # calculate control to follow car ahead
