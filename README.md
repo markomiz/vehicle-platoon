@@ -1,3 +1,5 @@
+[See paper](Distributed_EKF_NMPC.pdf)
+
 ## To Run Different Scenarios
 run scenarios.py - you can see the available arguments
 
